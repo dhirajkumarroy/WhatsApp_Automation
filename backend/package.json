@@ -1,0 +1,33 @@
+{
+  "name": "whatsapp-ai-bot",
+  "version": "1.0.0",
+  "description": "AI WhatsApp Automation Backend",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed:admin": "node src/scripts/seed-admin.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "ai",
+    "automation",
+    "nodejs"
+  ],
+  "author": "Dhiraj",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.0.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}
