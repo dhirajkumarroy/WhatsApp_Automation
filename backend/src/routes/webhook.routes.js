@@ -29,6 +29,10 @@ router.get("/", (req, res) => {
     return res.status(200).send(challenge);
   }
 
+  if (!mode && !token && !challenge) {
+    return res.status(200).send("OK");
+  }
+
   console.log("❌ Verification failed — mode:", mode, "| token match:", token === verifyToken);
   return res.sendStatus(403);
 });

@@ -36,7 +36,7 @@ app.use(express.json());
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.use("/webhook", webhookRoutes);
+app.use("/", webhookRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/leads", protect, leadRoutes);
 
