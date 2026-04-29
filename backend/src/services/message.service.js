@@ -1,255 +1,341 @@
 import { saveLead } from "./lead.service.js";
 import { notifyNewLead } from "./notify.service.js";
 
-const processMessage = async ({ message, from }) => {
-  const text = message.toLowerCase().trim();
+const DEMO_LINK = "https://your-demo-link.com";
 
-  // ================= GLOBAL START =================
-  if (text === "hi" || text === "start" || text === "menu") {
-    return {
-      type: "buttons",
-      body: `👋 Hi, I'm Dhiraj
+const MENU_IDS = {
+  MAIN_MENU: "menu",
+  VIEW_DEMO: "view_demo",
+  GET_WEBSITE: "get_website",
+  AUTOMATION: "automation",
+  TALK_TO_ME: "talk_to_me",
+  GET_STARTED: "get_started",
+  PRICING: "pricing",
+  COACHING: "coaching",
+  GYM: "gym",
+  PORTFOLIO: "portfolio",
+  LIBRARY: "library"
+};
 
-I help build scalable backend systems & automation.
+const START_KEYWORDS = new Set(["hi", "hello", "start", "menu", "main menu"]);
 
-What would you like to do?`,
-      buttons: [
-        { id: "hire", title: "Hire Me" },
-        { id: "services", title: "Services" }
-      ]
-    };
+const CONTROL_KEYWORDS = new Set([
+  ...START_KEYWORDS,
+  "view demo",
+  "demo",
+  "get website",
+  "website",
+  "automation",
+  "talk to me",
+  "get started",
+  "pricing",
+  "coaching",
+  "gym",
+  "portfolio",
+  "library",
+  ...Object.values(MENU_IDS)
+]);
+
+const mainMenuRows = [
+  {
+    id: MENU_IDS.VIEW_DEMO,
+    title: "View Demo",
+    description: "See website and automation demos"
+  },
+  {
+    id: MENU_IDS.GET_WEBSITE,
+    title: "Get Website",
+    description: "Build a website for your business"
+  },
+  {
+    id: MENU_IDS.AUTOMATION,
+    title: "Automation",
+    description: "Automate replies and lead capture"
+  },
+  {
+    id: MENU_IDS.TALK_TO_ME,
+    title: "Talk to Me",
+    description: "Share your requirement with Dhiraj"
   }
+];
 
-  // ================= HIRE FLOW =================
-  if (text === "hire") {
-    return {
-      type: "buttons",
-      body: `👨‍💻 Great choice!
-
-How can I help you?`,
-      buttons: [
-        { id: "project", title: "Discuss Project" },
-        { id: "projects", title: "View Work" },
-        { id: "menu", title: "Main Menu" }
-      ]
-    };
+const websiteRows = [
+  {
+    id: MENU_IDS.COACHING,
+    title: "Coaching",
+    description: "Website for coaching institutes"
+  },
+  {
+    id: MENU_IDS.GYM,
+    title: "Gym",
+    description: "Website for gyms and fitness"
+  },
+  {
+    id: MENU_IDS.PORTFOLIO,
+    title: "Portfolio",
+    description: "Personal portfolio website"
+  },
+  {
+    id: MENU_IDS.LIBRARY,
+    title: "Library",
+    description: "Website for library businesses"
   }
+];
 
-  if (text === "project") {
-    return {
-      type: "text",
-      body: `Awesome 👍
-
-Tell me:
-• What do you want to build?
-• Timeline?
-• Budget (optional)
-
-I'll guide you further 🚀`
-    };
+const serviceDetails = {
+  [MENU_IDS.COACHING]: {
+    title: "📚 Coaching Website System",
+    includes: [
+      "Course & batch display",
+      "Student enquiry system",
+      "WhatsApp integration"
+    ],
+    price: "₹8,000"
+  },
+  [MENU_IDS.GYM]: {
+    title: "🏋️ Gym Website System",
+    includes: [
+      "Plans & trainer display",
+      "Member enquiry system",
+      "WhatsApp integration"
+    ],
+    price: "₹7,000"
+  },
+  [MENU_IDS.PORTFOLIO]: {
+    title: "👤 Portfolio Website",
+    includes: [
+      "Profile & skills section",
+      "Work showcase",
+      "Contact enquiry system"
+    ],
+    price: "₹4,000"
+  },
+  [MENU_IDS.LIBRARY]: {
+    title: "📖 Library Website System",
+    includes: [
+      "Plans & facilities display",
+      "Seat enquiry system",
+      "WhatsApp integration"
+    ],
+    price: "₹6,000"
   }
+};
 
-  // ================= PROJECT LIST =================
-  if (text === "projects") {
-    return {
-      type: "list",
-      body: "📂 Here are my projects:",
-      sections: [
-        {
-          title: "Select Project",
-          rows: [
-            {
-              id: "paperkart",
-              title: "PaperKart",
-              description: "E-commerce backend"
-            },
-            {
-              id: "secure_api",
-              title: "Secure API",
-              description: "Auth + JWT system"
-            },
-            {
-              id: "automation_bot",
-              title: "Automation Bot",
-              description: "WhatsApp system"
-            }
-          ]
-        }
-      ]
-    };
-  }
+const nextStepButtons = [
+  { id: MENU_IDS.GET_STARTED, title: "Get Started" },
+  { id: MENU_IDS.MAIN_MENU, title: "Main Menu" }
+];
 
-  if (text === "paperkart") {
-    return {
-      type: "buttons",
-      body: `🛒 PaperKart
+const mainMenuResponse = () => ({
+  type: "list",
+  body: `👋 Hi, I'm Dhiraj from ScaleforgeHQ
 
-E-commerce backend system
+We help businesses build websites and automate operations.
 
-👉 https://github.com/your-link`,
-      buttons: [
-        { id: "projects", title: "More Projects" },
-        { id: "hire", title: "Hire Me" },
-        { id: "menu", title: "Main Menu" }
-      ]
-    };
-  }
+What would you like to explore?`,
+  sections: [
+    {
+      title: "Choose an option",
+      rows: mainMenuRows
+    }
+  ]
+});
 
-  if (text === "secure_api") {
-    return {
-      type: "buttons",
-      body: `🔐 Secure API
+const websiteServiceResponse = () => ({
+  type: "list",
+  body: `🌐 Website Solutions
 
-JWT Auth + Security
+We build websites for:
+• Coaching Institutes
+• Gyms & Fitness
+• Libraries
+• Personal Portfolio
 
-👉 https://github.com/your-link`,
-      buttons: [
-        { id: "projects", title: "More Projects" },
-        { id: "hire", title: "Hire Me" },
-        { id: "menu", title: "Main Menu" }
-      ]
-    };
-  }
+Select your type:`,
+  sections: [
+    {
+      title: "Website Type",
+      rows: websiteRows
+    }
+  ]
+});
 
-  // ================= SERVICES =================
-  if (text === "services") {
-    return {
-      type: "buttons",
-      body: `🚀 ScaleForge Services
-
-We build production-grade systems.
-
-What do you need?`,
-      buttons: [
-        { id: "demo", title: "Get Demo" },
-        { id: "pricing", title: "Pricing" },
-        { id: "why", title: "Why Us" }
-      ]
-    };
-  }
-
-  if (text === "demo") {
-    return {
-      type: "text",
-      body: `Nice 👍
-
-Tell me about your business:
-• What do you sell?
-• What problem do you face?
-
-I'll suggest automation 🔥`
-    };
-  }
-
-  if (text === "automation_bot") {
-    return {
-      type: "buttons",
-      body: `🤖 Automation Bot
-
-WhatsApp lead capture + notifications
-
-👉 https://github.com/your-link`,
-      buttons: [
-        { id: "projects", title: "More Projects" },
-        { id: "services", title: "Services" },
-        { id: "menu", title: "Main Menu" }
-      ]
-    };
-  }
-
-  if (text === "pricing") {
-    return {
-      type: "buttons",
-      body: `💰 Pricing
-
-Setup: ₹2k
-Monthly: ₹1k
+const serviceDetailResponse = (service) => ({
+  type: "buttons",
+  body: `${service.title}
 
 Includes:
-✔ Automation
-✔ Lead capture
-✔ WhatsApp bot`,
-      buttons: [
-        { id: "demo", title: "Get Demo" },
-        { id: "services", title: "Services" },
-        { id: "menu", title: "Main Menu" }
-      ]
-    };
+${service.includes.map((item) => `• ${item}`).join("\n")}
+
+💰 Starting from ${service.price}
+
+👉 View Demo:
+${DEMO_LINK}`,
+  buttons: nextStepButtons
+});
+
+const automationResponse = () => ({
+  type: "buttons",
+  body: `🤖 WhatsApp Automation System
+
+We help you:
+• Auto-reply customers
+• Capture leads
+• Send follow-ups
+
+💰 Starting from ₹3,000 setup + monthly
+
+Want to see demo?`,
+  buttons: [
+    { id: MENU_IDS.VIEW_DEMO, title: "View Demo" },
+    { id: MENU_IDS.GET_STARTED, title: "Get Started" },
+    { id: MENU_IDS.MAIN_MENU, title: "Main Menu" }
+  ]
+});
+
+const demoResponse = () => ({
+  type: "buttons",
+  body: `🔍 Here are live demos:
+
+• Coaching Website
+• Admin Dashboard
+• Automation System
+
+👉 ${DEMO_LINK}
+
+Tell me what you need 👍`,
+  buttons: [
+    { id: MENU_IDS.GET_STARTED, title: "Get Started" },
+    { id: MENU_IDS.GET_WEBSITE, title: "Get Website" },
+    { id: MENU_IDS.MAIN_MENU, title: "Main Menu" }
+  ]
+});
+
+const handoffResponse = () => ({
+  type: "text",
+  body: `Great 👍
+
+Tell me:
+• What type of business?
+• What do you want to build?
+
+I'll guide you step by step 🚀`
+});
+
+const pricingResponse = () => ({
+  type: "buttons",
+  body: `💰 Pricing depends on your requirements.
+
+Typical range:
+• Website: ₹6K – ₹12K
+• Automation: ₹3K setup + monthly
+
+Tell me your requirement 👍`,
+  buttons: [
+    { id: MENU_IDS.GET_STARTED, title: "Get Started" },
+    { id: MENU_IDS.VIEW_DEMO, title: "View Demo" },
+    { id: MENU_IDS.MAIN_MENU, title: "Main Menu" }
+  ]
+});
+
+const fallbackResponse = () => ({
+  type: "buttons",
+  body: `I can help with websites and automation.
+
+What would you like to do?`,
+  buttons: [
+    { id: MENU_IDS.GET_WEBSITE, title: "Get Website" },
+    { id: MENU_IDS.AUTOMATION, title: "Automation" },
+    { id: MENU_IDS.TALK_TO_ME, title: "Talk to Me" }
+  ]
+});
+
+const detectIntent = (text) => {
+  if (text.includes("website")) return "website";
+  if (text.includes("automation")) return "automation";
+
+  return "general";
+};
+
+const saveAndNotifyLead = async ({ from, message, text }) => {
+  const lead = await saveLead({
+    phone: from,
+    message,
+    intent: detectIntent(text),
+    source: "scaleforgehq"
+  });
+
+  await notifyNewLead(lead);
+};
+
+const normalizeMessage = (message = "") => message.toLowerCase().trim();
+
+const processMessage = async ({ message, from }) => {
+  const text = normalizeMessage(message);
+
+  // Entry flow: first contact and main menu navigation.
+  if (START_KEYWORDS.has(text)) {
+    return mainMenuResponse();
   }
 
-  if (text === "why") {
-    return {
-      type: "buttons",
-      body: `💡 Why ScaleForge?
-
-🔐 Secure APIs
-⚡ Scalable systems
-🧼 Clean code
-🚀 Production-ready`,
-      buttons: [
-        { id: "pricing", title: "Pricing" },
-        { id: "demo", title: "Get Demo" },
-        { id: "menu", title: "Main Menu" }
-      ]
-    };
+  // Demo flow: show business-focused examples and move toward conversation.
+  if (text === MENU_IDS.VIEW_DEMO || text === "view demo" || text === "demo") {
+    return demoResponse();
   }
 
-  // ================= LEAD CAPTURE =================
+  // Website funnel: segment the lead by business type.
   if (
-    text.length > 10 &&
-    ![
-      "hi",
-      "start",
-      "menu",
-      "hire",
-      "project",
-      "projects",
-      "services",
-      "demo",
-      "pricing",
-      "why",
-      "paperkart",
-      "secure_api",
-      "automation_bot"
-    ].includes(text)
+    text === MENU_IDS.GET_WEBSITE ||
+    text === "get website" ||
+    text === "website"
   ) {
-    const intent = text.includes("business") ? "automation" : "hire";
+    return websiteServiceResponse();
+  }
 
-    const lead = await saveLead({
-      phone: from,
-      message,
-      intent,
-      source: intent === "automation" ? "scaleforge" : "dhirajroy"
-    });
+  if (serviceDetails[text]) {
+    return serviceDetailResponse(serviceDetails[text]);
+  }
 
-    await notifyNewLead(lead);
+  // Automation funnel: explain the offer and push to demo or handoff.
+  if (text === MENU_IDS.AUTOMATION || text === "automation") {
+    return automationResponse();
+  }
+
+  // Pricing flow: keep pricing flexible and invite the user to share details.
+  if (text === MENU_IDS.PRICING || text === "pricing") {
+    return pricingResponse();
+  }
+
+  // Closing flow: human handoff prompt for warm leads.
+  if (
+    text === MENU_IDS.TALK_TO_ME ||
+    text === MENU_IDS.GET_STARTED ||
+    text === "talk to me" ||
+    text === "get started"
+  ) {
+    return handoffResponse();
+  }
+
+  // Lead capture: any custom message becomes a lead and triggers notification.
+  if (text.length >= 3 && !CONTROL_KEYWORDS.has(text)) {
+    await saveAndNotifyLead({ from, message, text });
 
     return {
       type: "buttons",
       body: `✅ Got it!
 
-I'll review and get back to you shortly.
-Meanwhile, you can explore 👇`,
+I'll review your requirement and reply shortly.
+
+You can also explore demos or pricing:`,
       buttons: [
-        { id: "services", title: "Services" },
-        { id: "projects", title: "Projects" },
-        { id: "menu", title: "Main Menu" }
+        { id: MENU_IDS.VIEW_DEMO, title: "View Demo" },
+        { id: MENU_IDS.PRICING, title: "Pricing" },
+        { id: MENU_IDS.MAIN_MENU, title: "Main Menu" }
       ]
     };
   }
 
-  // ================= FALLBACK =================
-  return {
-    type: "buttons",
-    body: `🤔 Not sure what you mean.
-
-Let's start fresh 👇`,
-    buttons: [
-      { id: "hire", title: "Hire Me" },
-      { id: "services", title: "Services" },
-      { id: "menu", title: "Restart" }
-    ]
-  };
+  return fallbackResponse();
 };
 
 export default processMessage;
