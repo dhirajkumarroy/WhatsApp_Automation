@@ -1,8 +1,30 @@
 import { sendText } from "./whatsapp.service.js";
 
-const ADMIN_NUMBER = process.env.ADMIN_WHATSAPP_NUMBER || "919304730973";
+const normalizePhoneNumber = (phone = "") => phone.replace(/\D/g, "");
+
+const getAdminNumber = () => {
+  const adminNumber = normalizePhoneNumber(process.env.ADMIN_WHATSAPP_NUMBER);
+
+  if (!adminNumber) {
+    return "";
+  }
+
+  if (adminNumber.length < 10) {
+    console.error("Admin lead notification skipped: ADMIN_WHATSAPP_NUMBER is invalid");
+    return "";
+  }
+
+  return adminNumber;
+};
 
 export const notifyNewLead = async (lead) => {
+  const adminNumber = getAdminNumber();
+
+  if (!adminNumber) {
+    console.error("Admin lead notification skipped: ADMIN_WHATSAPP_NUMBER is missing");
+    return;
+  }
+
   const msg = `🔥 New Lead
 
 📱 Phone: ${lead.phone}
@@ -12,12 +34,20 @@ export const notifyNewLead = async (lead) => {
 Reply fast 🚀`;
 
   try {
-    await sendText(ADMIN_NUMBER, msg);
+    const response = await sendText(adminNumber, msg);
+
+    console.log("Admin lead notification sent", {
+      adminNumber,
+      leadPhone: lead.phone,
+      messageId: response?.messages?.[0]?.id
+    });
   } catch (error) {
     console.error("Admin lead notification failed", {
       message: error.message,
-      adminNumber: ADMIN_NUMBER,
-      leadPhone: lead.phone
+      adminNumber,
+      leadPhone: lead.phone,
+      metaError: error.response?.data?.error,
+      metaResponse: error.response?.data
     });
   }
 };

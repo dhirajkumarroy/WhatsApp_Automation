@@ -4,7 +4,7 @@
  * Then delete or keep — running it again is safe (will skip if email exists).
  */
 
-import "dotenv/config";
+import "../config/env.js";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import Admin from "../models/admin.model.js";
