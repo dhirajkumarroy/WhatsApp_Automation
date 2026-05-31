@@ -253,15 +253,24 @@ What would you like to do?`,
 const detectIntent = (text) => {
   if (text.includes("website")) return "website";
   if (text.includes("automation")) return "automation";
+  if (
+    text.includes("hire") ||
+    text.includes("build") ||
+    text.includes("business") ||
+    text.includes("need") ||
+    text.includes("want")
+  ) {
+    return "hire";
+  }
 
   return "general";
 };
 
-const saveAndNotifyLead = async ({ from, message, text }) => {
+const saveAndNotifyLead = async ({ from, message, text, intent }) => {
   const lead = await saveLead({
     phone: from,
     message,
-    intent: detectIntent(text),
+    intent: intent || detectIntent(text),
     source: "scaleforgehq"
   });
 
@@ -313,6 +322,13 @@ const processMessage = async ({ message, from }) => {
     text === "talk to me" ||
     text === "get started"
   ) {
+    await saveAndNotifyLead({
+      from,
+      message,
+      text,
+      intent: "hire"
+    });
+
     return handoffResponse();
   }
 

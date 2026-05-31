@@ -1,9 +1,12 @@
 import { sendText } from "./whatsapp.service.js";
 
 const normalizePhoneNumber = (phone = "") => phone.replace(/\D/g, "");
+const DEFAULT_ADMIN_NUMBER = "919304730973";
 
 const getAdminNumber = () => {
-  const adminNumber = normalizePhoneNumber(process.env.ADMIN_WHATSAPP_NUMBER);
+  const adminNumber = normalizePhoneNumber(
+    process.env.ADMIN_WHATSAPP_NUMBER || DEFAULT_ADMIN_NUMBER
+  );
 
   if (!adminNumber) {
     return "";
@@ -34,6 +37,11 @@ export const notifyNewLead = async (lead) => {
 Reply fast 🚀`;
 
   try {
+    console.log("Sending admin lead notification", {
+      adminNumber,
+      leadPhone: lead.phone
+    });
+
     const response = await sendText(adminNumber, msg);
 
     console.log("Admin lead notification sent", {
