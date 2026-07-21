@@ -163,10 +163,7 @@ const serviceDetailResponse = (service) => ({
 Includes:
 ${service.includes.map((item) => `• ${item}`).join("\n")}
 
-👉 View Demo:
-${DEMO_LINK}
-
-Share your requirements and I'll send you a custom quote 👍`,
+Share your specific business requirements and I'll send you a custom live demo & quote tailored for your business 👍`,
   buttons: nextStepButtons
 });
 
@@ -179,11 +176,8 @@ We help you:
 • Capture leads
 • Send follow-ups
 
-Pricing depends on your requirements — tell me what you need and I'll share a custom quote.
-
-Want to see demo?`,
+Share your business requirements (what flows or features you need) and I'll send you a custom live demo & quote.`,
   buttons: [
-    { id: MENU_IDS.VIEW_DEMO, title: "View Demo" },
     { id: MENU_IDS.GET_STARTED, title: "Get Started" },
     { id: MENU_IDS.MAIN_MENU, title: "Main Menu" }
   ]
@@ -191,15 +185,13 @@ Want to see demo?`,
 
 const demoResponse = () => ({
   type: "buttons",
-  body: `🔍 Here are live demos:
+  body: `🔍 We prepare custom live demos based on your specific business requirements!
 
-• Coaching Website
-• Admin Dashboard
-• Automation System
+Tell me:
+• What type of business do you run?
+• What features or pages do you need?
 
-👉 ${DEMO_LINK}
-
-Tell me what you need 👍`,
+Share your requirement and I'll send you a tailored live demo & pricing 👍`,
   buttons: [
     { id: MENU_IDS.GET_STARTED, title: "Get Started" },
     { id: MENU_IDS.GET_WEBSITE, title: "Get Website" },
@@ -213,19 +205,18 @@ const handoffResponse = () => ({
 
 Tell me:
 • What type of business?
-• What do you want to build?
+• What features or pages do you want?
 
-I'll guide you step by step 🚀`
+I'll review your requirements and send you a custom live demo & price quote 🚀`
 });
 
 const pricingResponse = () => ({
   type: "buttons",
   body: `💰 Pricing depends on your specific requirements — every project is different.
 
-Tell me what you're looking to build and I'll get back to you with a custom quote 👍`,
+Tell me what you're looking to build and I'll get back to you with a custom live demo & price quote 👍`,
   buttons: [
     { id: MENU_IDS.GET_STARTED, title: "Get Started" },
-    { id: MENU_IDS.VIEW_DEMO, title: "View Demo" },
     { id: MENU_IDS.MAIN_MENU, title: "Main Menu" }
   ]
 });
