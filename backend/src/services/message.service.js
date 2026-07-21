@@ -89,8 +89,7 @@ const serviceDetails = {
       "Course & batch display",
       "Student enquiry system",
       "WhatsApp integration"
-    ],
-    price: "₹8,000"
+    ]
   },
   [MENU_IDS.GYM]: {
     title: "🏋️ Gym Website System",
@@ -98,8 +97,7 @@ const serviceDetails = {
       "Plans & trainer display",
       "Member enquiry system",
       "WhatsApp integration"
-    ],
-    price: "₹7,000"
+    ]
   },
   [MENU_IDS.PORTFOLIO]: {
     title: "👤 Portfolio Website",
@@ -107,8 +105,7 @@ const serviceDetails = {
       "Profile & skills section",
       "Work showcase",
       "Contact enquiry system"
-    ],
-    price: "₹4,000"
+    ]
   },
   [MENU_IDS.LIBRARY]: {
     title: "📖 Library Website System",
@@ -116,8 +113,7 @@ const serviceDetails = {
       "Plans & facilities display",
       "Seat enquiry system",
       "WhatsApp integration"
-    ],
-    price: "₹6,000"
+    ]
   }
 };
 
@@ -167,10 +163,10 @@ const serviceDetailResponse = (service) => ({
 Includes:
 ${service.includes.map((item) => `• ${item}`).join("\n")}
 
-💰 Starting from ${service.price}
-
 👉 View Demo:
-${DEMO_LINK}`,
+${DEMO_LINK}
+
+Share your requirements and I'll send you a custom quote 👍`,
   buttons: nextStepButtons
 });
 
@@ -183,7 +179,7 @@ We help you:
 • Capture leads
 • Send follow-ups
 
-💰 Starting from ₹3,000 setup + monthly
+Pricing depends on your requirements — tell me what you need and I'll share a custom quote.
 
 Want to see demo?`,
   buttons: [
@@ -224,13 +220,9 @@ I'll guide you step by step 🚀`
 
 const pricingResponse = () => ({
   type: "buttons",
-  body: `💰 Pricing depends on your requirements.
+  body: `💰 Pricing depends on your specific requirements — every project is different.
 
-Typical range:
-• Website: ₹6K – ₹12K
-• Automation: ₹3K setup + monthly
-
-Tell me your requirement 👍`,
+Tell me what you're looking to build and I'll get back to you with a custom quote 👍`,
   buttons: [
     { id: MENU_IDS.GET_STARTED, title: "Get Started" },
     { id: MENU_IDS.VIEW_DEMO, title: "View Demo" },
