@@ -155,6 +155,64 @@ const options = {
             401: { description: "Unauthorized" },
             404: { description: "Lead not found" }
           }
+        },
+        delete: {
+          tags: ["Leads"],
+          summary: "Soft delete lead",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" }
+            }
+          ],
+          responses: {
+            200: { description: "Lead soft deleted" },
+            401: { description: "Unauthorized" },
+            404: { description: "Lead not found" }
+          }
+        }
+      },
+      "/api/leads/{id}/restore": {
+        patch: {
+          tags: ["Leads"],
+          summary: "Restore soft deleted lead",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" }
+            }
+          ],
+          responses: {
+            200: { description: "Lead restored" },
+            401: { description: "Unauthorized" },
+            404: { description: "Lead not found" }
+          }
+        }
+      },
+      "/api/leads/{id}/permanent": {
+        delete: {
+          tags: ["Leads"],
+          summary: "Permanently delete lead",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string" }
+            }
+          ],
+          responses: {
+            200: { description: "Lead permanently deleted" },
+            401: { description: "Unauthorized" },
+            404: { description: "Lead not found" }
+          }
         }
       }
     }

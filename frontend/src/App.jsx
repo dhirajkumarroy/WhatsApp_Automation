@@ -7,12 +7,13 @@ const api = axios.create({
 });
 
 const TOKEN_STORAGE_KEY = "sf_token";
-const STATUS_FILTERS = ["all", "new", "contacted", "converted"];
+const STATUS_FILTERS = ["all", "new", "contacted", "converted", "trash"];
 
 const STATUS_STYLES = {
   new: "bg-amber-50 text-amber-800 ring-amber-200",
   contacted: "bg-sky-50 text-sky-800 ring-sky-200",
-  converted: "bg-emerald-50 text-emerald-800 ring-emerald-200"
+  converted: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+  trash: "bg-rose-50 text-rose-800 ring-rose-200"
 };
 
 const INTENT_STYLES = {
@@ -140,7 +141,7 @@ export default function App() {
         setLoading(true);
       }
 
-      const { data } = await api.get("/leads");
+      const { data } = await api.get("/leads?includeDeleted=true");
       setLeads(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch leads:", err);
@@ -190,6 +191,100 @@ export default function App() {
     }
   };
 
+  const softDeleteLead = async (id) => {
+    try {
+      setError("");
+      setSavingId(id);
+      await api.delete(`/leads/${id}`);
+
+      setLeads((current) =>
+        current.map((lead) =>
+          lead._id === id ? { ...lead, isDeleted: true, deletedAt: new Date() } : lead
+        )
+      );
+
+      setActiveLead((current) =>
+        current && current._id === id ? { ...current, isDeleted: true, deletedAt: new Date() } : current
+      );
+
+      setToast("Lead soft deleted (moved to trash).");
+    } catch (err) {
+      console.error("Failed to soft delete lead:", err);
+      const responseStatus = err.response?.status;
+      setError(
+        responseStatus === 401
+          ? "Your session expired. Please sign in again."
+          : "Could not soft delete lead."
+      );
+    } finally {
+      setSavingId("");
+    }
+  };
+
+  const restoreLead = async (id) => {
+    try {
+      setError("");
+      setSavingId(id);
+      await api.patch(`/leads/${id}/restore`);
+
+      setLeads((current) =>
+        current.map((lead) =>
+          lead._id === id ? { ...lead, isDeleted: false, deletedAt: null } : lead
+        )
+      );
+
+      setActiveLead((current) =>
+        current && current._id === id ? { ...current, isDeleted: false, deletedAt: null } : current
+      );
+
+      setToast("Lead restored from trash.");
+    } catch (err) {
+      console.error("Failed to restore lead:", err);
+      const responseStatus = err.response?.status;
+      setError(
+        responseStatus === 401
+          ? "Your session expired. Please sign in again."
+          : "Could not restore lead."
+      );
+    } finally {
+      setSavingId("");
+    }
+  };
+
+  const hardDeleteLead = async (id) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to PERMANENTLY delete this lead? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setError("");
+      setSavingId(id);
+      await api.delete(`/leads/${id}/permanent`);
+
+      setLeads((current) => current.filter((lead) => lead._id !== id));
+
+      setActiveLead((current) =>
+        current && current._id === id ? null : current
+      );
+
+      setToast("Lead permanently deleted.");
+    } catch (err) {
+      console.error("Failed to permanently delete lead:", err);
+      const responseStatus = err.response?.status;
+      setError(
+        responseStatus === 401
+          ? "Your session expired. Please sign in again."
+          : "Could not permanently delete lead."
+      );
+    } finally {
+      setSavingId("");
+    }
+  };
+
   useEffect(() => {
     if (!token) {
       setLoading(false);
@@ -209,10 +304,13 @@ export default function App() {
           new Date(a.createdAt || 0).getTime()
       )
       .filter((lead) => {
-        const matchesStatus =
-          statusFilter === "all" || lead.status === statusFilter;
+        if (statusFilter === "trash") {
+          if (!lead.isDeleted) return false;
+        } else {
+          if (lead.isDeleted) return false;
+          if (statusFilter !== "all" && lead.status !== statusFilter) return false;
+        }
 
-        if (!matchesStatus) return false;
         if (!query) return true;
 
         const haystack =
@@ -224,20 +322,24 @@ export default function App() {
   }, [deferredSearch, leads, statusFilter]);
 
   const metrics = useMemo(() => {
-    const total = leads.length;
-    const newCount = leads.filter((lead) => lead.status === "new").length;
-    const contactedCount = leads.filter(
+    const activeLeads = leads.filter((lead) => !lead.isDeleted);
+    const trashLeads = leads.filter((lead) => lead.isDeleted);
+    const total = activeLeads.length;
+    const newCount = activeLeads.filter((lead) => lead.status === "new").length;
+    const contactedCount = activeLeads.filter(
       (lead) => lead.status === "contacted"
     ).length;
-    const convertedCount = leads.filter(
+    const convertedCount = activeLeads.filter(
       (lead) => lead.status === "converted"
     ).length;
+    const trashCount = trashLeads.length;
 
     return {
       total,
       newCount,
       contactedCount,
       convertedCount,
+      trashCount,
       conversionRate: total
         ? Math.round((convertedCount / total) * 100)
         : 0
@@ -489,36 +591,64 @@ export default function App() {
                         className="px-6 py-5"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => updateStatus(lead._id, "contacted")}
-                            disabled={
-                              savingId === lead._id ||
-                              lead.status === "contacted" ||
-                              lead.status === "converted"
-                            }
-                            className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {savingId === lead._id ? "Saving..." : "Contacted"}
-                          </button>
-                          <button
-                            onClick={() => updateStatus(lead._id, "converted")}
-                            disabled={
-                              savingId === lead._id ||
-                              lead.status === "converted"
-                            }
-                            className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {savingId === lead._id ? "Saving..." : "Converted"}
-                          </button>
-                          <a
-                            href={`https://wa.me/${sanitizePhone(lead.phone)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                          >
-                            WhatsApp
-                          </a>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {lead.isDeleted ? (
+                            <>
+                              <button
+                                onClick={() => restoreLead(lead._id)}
+                                disabled={savingId === lead._id}
+                                className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {savingId === lead._id ? "Saving..." : "Restore"}
+                              </button>
+                              <button
+                                onClick={() => hardDeleteLead(lead._id)}
+                                disabled={savingId === lead._id}
+                                className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {savingId === lead._id ? "Deleting..." : "Complete Delete"}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => updateStatus(lead._id, "contacted")}
+                                disabled={
+                                  savingId === lead._id ||
+                                  lead.status === "contacted" ||
+                                  lead.status === "converted"
+                                }
+                                className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {savingId === lead._id ? "Saving..." : "Contacted"}
+                              </button>
+                              <button
+                                onClick={() => updateStatus(lead._id, "converted")}
+                                disabled={
+                                  savingId === lead._id ||
+                                  lead.status === "converted"
+                                }
+                                className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {savingId === lead._id ? "Saving..." : "Converted"}
+                              </button>
+                              <a
+                                href={`https://wa.me/${sanitizePhone(lead.phone)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                              >
+                                WhatsApp
+                              </a>
+                              <button
+                                onClick={() => softDeleteLead(lead._id)}
+                                disabled={savingId === lead._id}
+                                className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {savingId === lead._id ? "Saving..." : "Soft Delete"}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -542,6 +672,9 @@ export default function App() {
           saving={savingId === activeLead._id}
           onClose={() => setActiveLead(null)}
           onStatusChange={updateStatus}
+          onSoftDelete={softDeleteLead}
+          onRestore={restoreLead}
+          onHardDelete={hardDeleteLead}
         />
       )}
 
@@ -625,7 +758,15 @@ function IntentBadge({ intent }) {
   );
 }
 
-function LeadDrawer({ lead, saving, onClose, onStatusChange }) {
+function LeadDrawer({
+  lead,
+  saving,
+  onClose,
+  onStatusChange,
+  onSoftDelete,
+  onRestore,
+  onHardDelete
+}) {
   return (
     <div className="fixed inset-0 z-40">
       <div
@@ -637,7 +778,7 @@ function LeadDrawer({ lead, saving, onClose, onStatusChange }) {
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-              Lead Details
+              Lead Details {lead.isDeleted && "(In Trash)"}
             </div>
             <h3 className="mt-2 text-2xl font-black text-slate-900">
               {lead.phone}
@@ -661,7 +802,7 @@ function LeadDrawer({ lead, saving, onClose, onStatusChange }) {
               <IntentBadge intent={lead.intent} />
             </InfoCard>
             <InfoCard label="Status">
-              <StatusBadge status={lead.status} />
+              <StatusBadge status={lead.isDeleted ? "trash" : lead.status} />
             </InfoCard>
           </div>
 
@@ -676,37 +817,74 @@ function LeadDrawer({ lead, saving, onClose, onStatusChange }) {
               {lead.source || "Unknown"}
             </p>
           </InfoCard>
+
+          {lead.isDeleted && lead.deletedAt && (
+            <InfoCard label="Soft Deleted At">
+              <p className="text-sm font-semibold text-rose-600">
+                {formatDate(lead.deletedAt)}
+              </p>
+            </InfoCard>
+          )}
         </div>
 
         <div className="border-t border-slate-200 px-6 py-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <button
-              onClick={() => onStatusChange(lead._id, "contacted")}
-              disabled={
-                saving || lead.status === "contacted" || lead.status === "converted"
-              }
-              className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Mark Contacted"}
-            </button>
+          {lead.isDeleted ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => onRestore(lead._id)}
+                disabled={saving}
+                className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Restore Lead"}
+              </button>
 
-            <button
-              onClick={() => onStatusChange(lead._id, "converted")}
-              disabled={saving || lead.status === "converted"}
-              className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Mark Converted"}
-            </button>
+              <button
+                onClick={() => onHardDelete(lead._id)}
+                disabled={saving}
+                className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? "Deleting..." : "Complete Delete"}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <button
+                  onClick={() => onStatusChange(lead._id, "contacted")}
+                  disabled={
+                    saving || lead.status === "contacted" || lead.status === "converted"
+                  }
+                  className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Mark Contacted"}
+                </button>
 
-            <a
-              href={`https://wa.me/${sanitizePhone(lead.phone)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Open WhatsApp
-            </a>
-          </div>
+                <button
+                  onClick={() => onStatusChange(lead._id, "converted")}
+                  disabled={saving || lead.status === "converted"}
+                  className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Mark Converted"}
+                </button>
+
+                <a
+                  href={`https://wa.me/${sanitizePhone(lead.phone)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Open WhatsApp
+                </a>
+              </div>
+              <button
+                onClick={() => onSoftDelete(lead._id)}
+                disabled={saving}
+                className="w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Soft Delete Lead (Move to Trash)"}
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </div>

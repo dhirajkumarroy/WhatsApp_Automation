@@ -10,6 +10,14 @@ const leadSchema = new mongoose.Schema({
     type: String,
     enum: ["new", "contacted", "converted"],
     default: "new"
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
 
