@@ -207,14 +207,18 @@ export default function App() {
         current && current._id === id ? { ...current, isDeleted: true, deletedAt: new Date() } : current
       );
 
-      setToast("Lead soft deleted (moved to trash).");
+      setToast("Lead moved to trash (soft deleted).");
     } catch (err) {
       console.error("Failed to soft delete lead:", err);
+      const apiMessage = err.response?.data?.message;
       const responseStatus = err.response?.status;
       setError(
-        responseStatus === 401
+        apiMessage ||
+        (responseStatus === 401
           ? "Your session expired. Please sign in again."
-          : "Could not soft delete lead."
+          : responseStatus === 404
+          ? "Lead not found on server or already deleted."
+          : "Could not soft delete lead.")
       );
     } finally {
       setSavingId("");
@@ -240,11 +244,15 @@ export default function App() {
       setToast("Lead restored from trash.");
     } catch (err) {
       console.error("Failed to restore lead:", err);
+      const apiMessage = err.response?.data?.message;
       const responseStatus = err.response?.status;
       setError(
-        responseStatus === 401
+        apiMessage ||
+        (responseStatus === 401
           ? "Your session expired. Please sign in again."
-          : "Could not restore lead."
+          : responseStatus === 404
+          ? "Lead not found on server."
+          : "Could not restore lead.")
       );
     } finally {
       setSavingId("");
@@ -274,11 +282,15 @@ export default function App() {
       setToast("Lead permanently deleted.");
     } catch (err) {
       console.error("Failed to permanently delete lead:", err);
+      const apiMessage = err.response?.data?.message;
       const responseStatus = err.response?.status;
       setError(
-        responseStatus === 401
+        apiMessage ||
+        (responseStatus === 401
           ? "Your session expired. Please sign in again."
-          : "Could not permanently delete lead."
+          : responseStatus === 404
+          ? "Lead not found on server."
+          : "Could not permanently delete lead.")
       );
     } finally {
       setSavingId("");
@@ -467,24 +479,59 @@ export default function App() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              {STATUS_FILTERS.map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setStatusFilter(filter)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold capitalize transition ${
-                    statusFilter === filter
-                      ? "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {filter}
-                </button>
-              ))}
+              {STATUS_FILTERS.map((filter) => {
+                let count = 0;
+                if (filter === "all") count = metrics.total;
+                else if (filter === "new") count = metrics.newCount;
+                else if (filter === "contacted") count = metrics.contactedCount;
+                else if (filter === "converted") count = metrics.convertedCount;
+                else if (filter === "trash") count = metrics.trashCount;
+
+                return (
+                  <button
+                    key={filter}
+                    onClick={() => setStatusFilter(filter)}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold capitalize transition ${
+                      statusFilter === filter
+                        ? filter === "trash"
+                          ? "bg-rose-600 text-white"
+                          : "bg-slate-900 text-white"
+                        : filter === "trash"
+                        ? "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {filter === "trash" && <TrashIcon className="h-4 w-4" />}
+                    <span>{filter}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                        statusFilter === filter
+                          ? "bg-white/20 text-white"
+                          : filter === "trash"
+                          ? "bg-rose-200/60 text-rose-800"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {error && (
-              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {error}
+              <div className="mt-4 flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="flex items-center gap-2">
+                  <AlertIcon className="h-5 w-5 shrink-0 text-rose-500" />
+                  <span>{error}</span>
+                </div>
+                <button
+                  onClick={() => setError("")}
+                  className="rounded-full p-1 text-rose-500 hover:bg-rose-100"
+                  title="Dismiss message"
+                >
+                  <CloseIcon className="h-4 w-4" />
+                </button>
               </div>
             )}
           </div>
@@ -588,25 +635,29 @@ export default function App() {
                       </td>
 
                       <td
-                        className="px-6 py-5"
+                        className="px-6 py-5 text-right whitespace-nowrap"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <div className="flex flex-wrap justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
                           {lead.isDeleted ? (
                             <>
                               <button
                                 onClick={() => restoreLead(lead._id)}
                                 disabled={savingId === lead._id}
-                                className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Restore lead to pipeline"
                               >
-                                {savingId === lead._id ? "Saving..." : "Restore"}
+                                <RestoreIcon className="h-3.5 w-3.5" />
+                                <span>{savingId === lead._id ? "Saving..." : "Restore"}</span>
                               </button>
                               <button
                                 onClick={() => hardDeleteLead(lead._id)}
                                 disabled={savingId === lead._id}
-                                className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Delete lead permanently"
                               >
-                                {savingId === lead._id ? "Deleting..." : "Complete Delete"}
+                                <TrashIcon className="h-3.5 w-3.5" />
+                                <span>{savingId === lead._id ? "Deleting..." : "Complete Delete"}</span>
                               </button>
                             </>
                           ) : (
@@ -643,9 +694,11 @@ export default function App() {
                               <button
                                 onClick={() => softDeleteLead(lead._id)}
                                 disabled={savingId === lead._id}
-                                className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 hover:border-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Move to trash (Soft Delete)"
                               >
-                                {savingId === lead._id ? "Saving..." : "Soft Delete"}
+                                <TrashIcon className="h-3.5 w-3.5 text-rose-600" />
+                                <span>{savingId === lead._id ? "Saving..." : "Soft Delete"}</span>
                               </button>
                             </>
                           )}
@@ -1024,3 +1077,43 @@ function InboxIcon({ className }) {
     </svg>
   );
 }
+
+function TrashIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path
+        d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function RestoreIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path
+        d="M3 10h10a5 5 0 015 5v2M3 10l6-6M3 10l6 6"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AlertIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path
+        d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
