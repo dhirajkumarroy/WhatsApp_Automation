@@ -1,13 +1,13 @@
 import Session from "../models/session.model.js";
 
 export const getSession = (phone) => {
-  return Session.findOne({ phone });
+  return Session.findOne({ phone }).lean();
 };
 
 export const upsertSession = (phone, data) => {
   return Session.findOneAndUpdate(
     { phone },
-    data,
+    { $set: data },
     { upsert: true, new: true }
   );
 };

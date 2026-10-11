@@ -1,18 +1,18 @@
 import { sendText } from "./whatsapp.service.js";
+import { BUSINESS_NAME, SERVICES } from "../config/business.js";
 
 const normalizePhoneNumber = (phone = "") => phone.replace(/\D/g, "");
-const DEFAULT_ADMIN_NUMBER = "919304730973";
 
 const getAdminNumber = () => {
   const adminNumber = normalizePhoneNumber(
-    process.env.ADMIN_WHATSAPP_NUMBER || DEFAULT_ADMIN_NUMBER
+    process.env.ADMIN_WHATSAPP_NUMBER || ""
   );
 
   if (!adminNumber) {
     return "";
   }
 
-  if (adminNumber.length < 10) {
+  if (!/^[1-9]\d{9,14}$/.test(adminNumber)) {
     console.error("Admin lead notification skipped: ADMIN_WHATSAPP_NUMBER is invalid");
     return "";
   }
@@ -28,13 +28,19 @@ export const notifyNewLead = async (lead) => {
     return;
   }
 
-  const msg = `🔥 New Lead
+  const msg = `${BUSINESS_NAME} — New ${lead.requestType === "callback" ? "callback request" : "project enquiry"}
 
-📱 Phone: ${lead.phone}
-🎯 Intent: ${lead.intent}
-💬 Message: ${lead.message}
+Name: ${lead.name || "Not provided"}
+Phone: ${lead.phone}
+Business: ${lead.business || "Not provided"}
+Service: ${SERVICES[lead.intent]?.title || lead.intent || "General enquiry"}
+Budget: ${lead.budget || "Not specified"}
+Timeline: ${lead.timeline || "Not specified"}
+Found us on: ${lead.referralSource || "WhatsApp"}
 
-Reply fast 🚀`;
+Requirements: ${lead.message || "Not provided"}
+
+Follow up on WhatsApp: https://wa.me/${normalizePhoneNumber(lead.phone)}`.slice(0, 4096);
 
   try {
     console.log("Sending admin lead notification", {

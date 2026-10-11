@@ -9,8 +9,13 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import Admin from "../models/admin.model.js";
 
-const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || "admin@scaleforge.com";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin@123";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  console.error("Set ADMIN_EMAIL and ADMIN_PASSWORD in backend/.env before creating your company admin.");
+  process.exit(1);
+}
 
 if (!process.env.MONGO_URI) {
   console.error("MONGO_URI is not configured in backend/.env");
@@ -28,7 +33,6 @@ if (existing) {
   await Admin.create({ email: ADMIN_EMAIL, password: hashed });
   console.log("✅ Admin created successfully!");
   console.log(`   Email   : ${ADMIN_EMAIL}`);
-  console.log(`   Password: ${ADMIN_PASSWORD}`);
 }
 
 await mongoose.disconnect();

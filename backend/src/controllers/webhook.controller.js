@@ -59,7 +59,10 @@ export const handleWebhook = async (req, res) => {
 
     const response = await processMessage({
       message: userMessage,
-      from
+      from,
+      messageId: msg.id,
+      isInteractive: msg.type === "interactive",
+      name: value.contacts?.find((contact) => contact.wa_id === from)?.profile?.name || ""
     });
 
     if (!response) {
@@ -89,6 +92,6 @@ export const handleWebhook = async (req, res) => {
       response: err.response?.data
     });
 
-    return res.sendStatus(200);
+    return res.sendStatus(500);
   }
 };

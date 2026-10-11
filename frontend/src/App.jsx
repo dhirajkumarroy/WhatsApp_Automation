@@ -3,7 +3,7 @@ import axios from "axios";
 import Login from "./Login.jsx";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api"
 });
 
 const TOKEN_STORAGE_KEY = "sf_token";
@@ -17,8 +17,17 @@ const STATUS_STYLES = {
 };
 
 const INTENT_STYLES = {
+  website: "bg-blue-50 text-blue-700 ring-blue-200",
+  app: "bg-violet-50 text-violet-700 ring-violet-200",
+  infrastructure: "bg-orange-50 text-orange-700 ring-orange-200",
+  complete: "bg-teal-50 text-teal-700 ring-teal-200",
   automation: "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-200",
   hire: "bg-slate-100 text-slate-700 ring-slate-200"
+};
+
+const SERVICE_LABELS = {
+  website: "Website", app: "App", automation: "Automation", custom: "Custom software",
+  infrastructure: "Domain & server", complete: "Complete setup", general: "General", hire: "Consultation"
 };
 
 function formatRelativeTime(value) {
@@ -151,7 +160,7 @@ export default function App() {
           ? "Your session expired. Please sign in again."
           : status
           ? `Backend request failed with status ${status}.`
-          : "Could not connect to the backend. Make sure the API server is running on port 5000."
+          : "Could not connect to the backend. Check the API server and your VITE_API_URL setting."
       );
     } finally {
       setLoading(false);
@@ -326,7 +335,7 @@ export default function App() {
         if (!query) return true;
 
         const haystack =
-          `${lead.phone || ""} ${lead.message || ""} ${lead.intent || ""} ${lead.status || ""}`
+          `${lead.phone || ""} ${lead.name || ""} ${lead.business || ""} ${lead.message || ""} ${lead.intent || ""} ${SERVICE_LABELS[lead.intent] || ""} ${lead.referralSource || ""} ${lead.status || ""}`
             .toLowerCase();
 
         return haystack.includes(query);
@@ -373,11 +382,11 @@ export default function App() {
                 Lead Operations
               </div>
               <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
-                ScaleForge Lead Dashboard
+                Dhanush Technologies
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                Review fresh WhatsApp enquiries, prioritize responses, and move
-                promising conversations toward conversion without losing context.
+                Manage client enquiries for websites, apps, automations, custom
+                software, and complete domain and server setup.
               </p>
             </div>
 
@@ -460,7 +469,8 @@ export default function App() {
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search phone, message, or intent"
+                    placeholder="Search client, business, or service"
+                    aria-label="Search client enquiries"
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white sm:w-80"
                   />
                 </div>
@@ -542,7 +552,7 @@ export default function App() {
                 <tr className="text-left text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                   <th className="px-6 py-4">Lead</th>
                   <th className="px-6 py-4">Message</th>
-                  <th className="px-6 py-4">Intent</th>
+                  <th className="px-6 py-4">Service</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Received</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -806,7 +816,7 @@ function IntentBadge({ intent }) {
         INTENT_STYLES[intent] || "bg-slate-100 text-slate-700 ring-slate-200"
       }`}
     >
-      {intent || "general"}
+      {SERVICE_LABELS[intent] || intent || "General"}
     </span>
   );
 }
@@ -851,7 +861,7 @@ function LeadDrawer({
 
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
           <div className="grid gap-4 sm:grid-cols-2">
-            <InfoCard label="Intent">
+            <InfoCard label="Service">
               <IntentBadge intent={lead.intent} />
             </InfoCard>
             <InfoCard label="Status">
@@ -859,7 +869,19 @@ function LeadDrawer({
             </InfoCard>
           </div>
 
-          <InfoCard label="Message">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              ["Client", lead.name], ["Business / project", lead.business],
+              ["Budget", lead.budget], ["Launch timeline", lead.timeline],
+              ["Request", lead.requestType], ["Found us on", lead.referralSource]
+            ].map(([label, value]) => (
+              <InfoCard key={label} label={label}>
+                <p className="break-words text-sm text-slate-700">{value || "Not provided"}</p>
+              </InfoCard>
+            ))}
+          </div>
+
+          <InfoCard label="Project requirements">
             <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
               {lead.message || "No message was provided by this lead."}
             </p>

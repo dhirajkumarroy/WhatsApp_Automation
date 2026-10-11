@@ -4,9 +4,9 @@ const options = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "WhatsApp AI Bot API",
+      title: "Dhanush Technologies Enquiries API",
       version: "1.0.0",
-      description: "REST API for WhatsApp AI automation backend"
+      description: "WhatsApp service enquiries and client lead management"
     },
     servers: [{ url: "/", description: "Current server" }],
     components: {
@@ -45,9 +45,17 @@ const options = {
             _id: { type: "string" },
             phone: { type: "string" },
             name: { type: "string" },
+            business: { type: "string" },
+            message: { type: "string" },
+            intent: { type: "string", description: "Service requested; older leads may use legacy values" },
+            budget: { type: "string" },
+            timeline: { type: "string" },
+            source: { type: "string" },
+            referralSource: { type: "string" },
+            requestType: { type: "string", enum: ["quote", "callback"] },
             status: {
               type: "string",
-              enum: ["new", "contacted", "converted", "lost"]
+              enum: ["new", "contacted", "converted"]
             },
             createdAt: { type: "string", format: "date-time" }
           }
@@ -136,7 +144,7 @@ const options = {
                   properties: {
                     status: {
                       type: "string",
-                      enum: ["new", "contacted", "converted", "lost"]
+                      enum: ["new", "contacted", "converted"]
                     }
                   }
                 }

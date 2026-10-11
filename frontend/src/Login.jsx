@@ -1,11 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 
-// ✅ Works with Vite (import.meta.env) and Create React App (process.env)
-const API_BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
-  (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) ||
-  "http://127.0.0.1:5000/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 const api = axios.create({ baseURL: API_BASE_URL });
 
@@ -75,7 +71,7 @@ export default function Login({ onLogin }) {
             <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center mb-4 shadow-lg">
               <WhatsAppIcon className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-xl font-black text-white">ScaleForge CRM</h1>
+            <h1 className="text-xl font-black text-white">Dhanush Technologies</h1>
             <p className="text-xs text-gray-500 mt-1">Sign in to your dashboard</p>
           </div>
 
@@ -101,7 +97,7 @@ export default function Login({ onLogin }) {
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
                   className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-gray-800 border border-gray-700 text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition disabled:opacity-50"
-                  placeholder="admin@scaleforge.com"
+                  placeholder="Your admin email"
                 />
               </div>
 
@@ -133,7 +129,7 @@ export default function Login({ onLogin }) {
               </div>
 
               <p className="text-xs text-center text-gray-600">
-                Demo: admin@scaleforge.com / any password (min 6 chars)
+                Sign in with your company admin account.
               </p>
 
               <button

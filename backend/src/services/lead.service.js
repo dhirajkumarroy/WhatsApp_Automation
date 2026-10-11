@@ -4,14 +4,17 @@ import {
   findLeadById,
   softDeleteLeadById,
   restoreLeadById,
-  hardDeleteLeadById
+  hardDeleteLeadById,
 } from "../repositories/lead.repository.js";
 
 export const saveLead = async (data) => {
   return createLead(data);
 };
 
-export const getLeadsService = async ({ includeDeleted = false, onlyDeleted = false } = {}) => {
+export const getLeadsService = async ({
+  includeDeleted = false,
+  onlyDeleted = false,
+} = {}) => {
   const query = {};
   if (onlyDeleted) {
     query.isDeleted = true;
@@ -32,4 +35,3 @@ export const restoreLeadService = async (id) => {
 export const hardDeleteLeadService = async (id) => {
   return hardDeleteLeadById(id);
 };
-
