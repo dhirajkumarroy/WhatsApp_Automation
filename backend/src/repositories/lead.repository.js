@@ -1,6 +1,13 @@
 import Lead from "../models/lead.model.js";
 
 export const createLead = (data) => {
+  if (data.enquiryId) {
+    return Lead.findOneAndUpdate(
+      { enquiryId: data.enquiryId },
+      { $setOnInsert: data },
+      { upsert: true, new: true, runValidators: true }
+    );
+  }
   return Lead.create(data);
 };
 
