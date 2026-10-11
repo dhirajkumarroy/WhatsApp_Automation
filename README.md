@@ -39,6 +39,7 @@ Requirements: A business website with bookings and complete launch setup
   - text messages
   - reply buttons
   - list menus
+- English / Hinglish selection with saved language preference and language changes during an enquiry.
 - Six service flows: websites, apps, WhatsApp automation, custom software, domain/server setup, and complete project setup.
 - Guided enquiries with name, business, requirements, budget and launch timeline.
 - Persistent draft sessions, callback requests, and website/LinkedIn referral tracking.
@@ -151,7 +152,9 @@ This is the main brain of the bot.
 
 Current flows:
 
-- `hi`, `hello`, `start`, `menu` show the Dhanush Technologies service menu.
+- First-time clients choose English or Hinglish before continuing; returning clients use their saved preference.
+- `hi`, `hello`, `start`, `menu` show the Dhanush Technologies service menu in the selected language.
+- `language` or the Change Language / Bhasha Badlein menu option changes language without losing draft answers.
 - Six service choices explain the available work and offer a quote or team callback.
 - `get_quote` collects name, business/project, requirements, budget and launch timeline.
 - A custom project message is retained as requirements while the bot collects the remaining details.
@@ -183,6 +186,7 @@ Lead data stored:
 - timeline
 - source
 - referralSource
+- language (`en` or `hinglish`)
 - requestType (`quote` or `callback`)
 - enquiryId
 - status
@@ -486,7 +490,7 @@ MONGO_URI=mongodb://mongo:27017/whatsapp-ai-bot
 
 ## Current Lead Journey
 
-1. Customer sends `Hi` and selects `Complete Project Setup`.
+1. Customer sends `Hi`, chooses English or Hinglish if new, and selects `Complete Project Setup` / `Poora Project Setup`.
 2. The bot explains development, automation, domain/server setup, launch and handover.
 3. Customer selects `Get a Quote` and shares their name, business and requirements.
 4. Customer provides budget and launch timeline, or skips those optional questions.

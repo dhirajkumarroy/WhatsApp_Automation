@@ -17,15 +17,27 @@ Keep the existing Meta token, phone number ID, webhook verification token, Mongo
 ## Client journey
 
 1. A client sends `hi` or opens WhatsApp from your website or LinkedIn page.
-2. The bot introduces itself as the Dhanush Technologies automated enquiry assistant.
+2. New clients choose **English** or **Hinglish**. The bot introduces itself and continues in that language. Returning clients use their saved preference.
 3. The client chooses Website Development, App Development, WhatsApp Automation, Custom Software, Domain & Server Setup, or Complete Project Setup.
-4. `Get a Quote` collects name, business/project, requirements, budget and launch timeline. Budget and timeline support `skip`.
+4. The service's `Get a Quote` / `Quote Mangwayein` button collects name, business/project, requirements, budget and launch timeline. Budget and timeline support `skip`.
 5. The completed enquiry appears in the admin dashboard and triggers an admin notification attempt. A client can also request a callback at any time using `human` or `Talk to Team`.
 6. Your team reviews the request, agrees on scope and price, and manages the lead status.
 
-Clients can type a project request directly; the bot keeps it while gathering the remaining details. `menu`, `cancel` and `restart` leave the draft enquiry. `pricing` and company information preserve the current question; `Get a Quote` resumes it. Drafts are stored in MongoDB and reset after 24 hours of inactivity. Drafts become dashboard leads when completed or when a callback is requested.
+Clients can type a project request directly; the bot keeps it while asking for language and gathering the remaining details. `menu`, `cancel` and `restart` leave the draft enquiry. `pricing` and company information preserve the current question; `Get a Quote` resumes it. Drafts are stored in MongoDB and reset after 24 hours of inactivity, while the selected language is retained. Drafts become dashboard leads when completed or when a callback is requested.
 
 Old website-category menu IDs and `get_started`, `talk_to_me`, and `view_demo` remain supported. Older dashboard leads remain readable. The existing admin login and stored token key remain compatible.
+
+## English and Hinglish
+
+Both languages use one enquiry flow and the same service IDs and lead fields. Only the customer-facing copy changes, including service descriptions, menu labels, list buttons, questions, validation messages, pricing, company information and confirmations.
+
+- New clients see `English` and `Hinglish` buttons. Typing either language name also works.
+- Select **Change Language / Bhasha Badlein** from the menu, or type `language` at any point. Selecting a language resumes the current question or selected service without losing answers.
+- The language preference survives server restarts, completed enquiries, `menu` and draft expiry. Existing clients without a saved preference are asked once on their next message.
+- Leads store `language` as `en` or `hinglish`. Admin notifications and the lead details drawer show **Preferred language**. Search `English` or `Hinglish` in the dashboard to find matching leads.
+- Client answers are saved exactly as typed. They are not automatically translated for the admin. Older leads without a preference display **Not selected**.
+
+Edit customer-facing translations in `backend/src/config/conversation.js`. The English service catalog remains in `backend/src/config/business.js`. No additional environment variables, translation API, admin seeding or database migration script are needed. Redeploy the backend and frontend to enable the changes.
 
 ## Connect website and LinkedIn enquiries
 
@@ -47,7 +59,7 @@ For LinkedIn:
 Hi Dhanush Technologies, I found you on LinkedIn.
 ```
 
-Those exact starter messages open the menu and record `website` or `linkedin` as the enquiry's referral source. Other messages are recorded as direct WhatsApp enquiries. This is message-based attribution, not a LinkedIn API integration. Add the resulting link wherever your website or company page allows a contact link.
+Those exact starter messages open language selection for new clients, then the menu, and record `website` or `linkedin` as the enquiry's referral source. Other messages are recorded as direct WhatsApp enquiries. This is message-based attribution, not a LinkedIn API integration. Add the resulting link wherever your website or company page allows a contact link.
 
 ## LinkedIn company-page draft
 

@@ -13,6 +13,11 @@ const sessionSchema = new mongoose.Schema({
   budget: String,
   timeline: String,
   referralSource: String,
+  language: { type: String, enum: ["en", "hinglish"] },
+  choosingLanguage: Boolean,
+  pendingMessage: String,
+  pendingInteractive: Boolean,
+  pendingProfileName: String,
   lastMessageId: String,
   lastResponse: mongoose.Schema.Types.Mixed
 }, { timestamps: true });

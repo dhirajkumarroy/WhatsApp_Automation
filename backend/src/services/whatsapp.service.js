@@ -81,7 +81,7 @@ export const sendButtons = async (to, body, buttons) => {
 };
 
 // 🔹 Send List Menu
-export const sendList = async (to, body, sections) => {
+export const sendList = async (to, body, sections, button = "Select") => {
   const { baseUrl, headers } = getWhatsAppConfig();
 
   try {
@@ -93,7 +93,7 @@ export const sendList = async (to, body, sections) => {
         type: "list",
         body: { text: body },
         action: {
-          button: "Select",
+          button,
           sections
         }
       }

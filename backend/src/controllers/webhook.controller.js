@@ -81,7 +81,7 @@ export const handleWebhook = async (req, res) => {
     }
 
     if (response.type === "list") {
-      await sendList(from, response.body, response.sections);
+      await sendList(from, response.body, response.sections, response.button);
     }
 
     return res.sendStatus(200);

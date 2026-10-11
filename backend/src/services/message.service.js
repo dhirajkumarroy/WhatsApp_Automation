@@ -1,357 +1,162 @@
 import { randomUUID } from "node:crypto";
-import {
-  BUSINESS_NAME,
-  SERVICES,
-  getBusinessProfile,
-} from "../config/business.js";
-import {
-  getSession,
-  upsertSession,
-} from "../repositories/session.repository.js";
+import { SERVICES, getBusinessProfile } from "../config/business.js";
+import { getConversation, isSupportedLanguage, languageSelection } from "../config/conversation.js";
+import { getSession, upsertSession } from "../repositories/session.repository.js";
 import { saveLead } from "./lead.service.js";
 import { notifyNewLead } from "./notify.service.js";
 
-const MENU = { id: "menu", title: "Main Menu" };
-const QUOTE = { id: "get_quote", title: "Get a Quote" };
-const TEAM = { id: "talk_to_team", title: "Talk to Team" };
-const START = new Set([
-  "hi",
-  "hello",
-  "hey",
-  "namaste",
-  "start",
-  "menu",
-  "main menu",
-  "services",
-]);
-const THANKS = new Set(["thanks", "thank you", "ok", "okay", "thankyou"]);
-const QUOTES = new Set([
-  "get_quote",
-  "get_started",
-  "get started",
-  "quote",
-  "get a quote",
-]);
-const HANDOFF = new Set([
-  "talk_to_team",
-  "talk_to_me",
-  "talk to me",
-  "talk to team",
-  "human",
-  "agent",
-]);
-const COMPANY = new Set([
-  "company",
-  "about",
-  "about us",
-  "linkedin",
-  "company website",
-  "view_demo",
-  "view demo",
-  "demo",
-]);
+const START = new Set(["hi", "hello", "hey", "namaste", "namaskar", "start", "menu", "main menu", "services"]);
+const THANKS = new Set(["thanks", "thank you", "ok", "okay", "thankyou", "shukriya", "dhanyavaad"]);
+const QUOTES = new Set(["get_quote", "get_started", "get started", "quote", "get a quote", "quote mangwayein"]);
+const HANDOFF = new Set(["talk_to_team", "talk_to_me", "talk to me", "talk to team", "human", "agent", "team se baat", "team se baat karein"]);
+const COMPANY = new Set(["company", "about", "about us", "linkedin", "company website", "view_demo", "view demo", "demo", "website aur linkedin"]);
+const CHANGE_LANGUAGE = new Set(["change_language", "language", "change language", "bhasha", "bhasha badlein", "language badlo"]);
+const LANGUAGE_CHOICES = { language_en: "en", language_hinglish: "hinglish", english: "en", hinglish: "hinglish" };
 const ALIASES = {
-  get_website: "website",
-  "get website": "website",
-  websites: "website",
-  coaching: "website",
-  gym: "website",
-  portfolio: "website",
-  library: "website",
-  apps: "app",
-  "mobile app": "app",
-  "app development": "app",
-  "whatsapp automation": "automation",
-  whatsapp: "automation",
-  software: "custom",
-  "custom software": "custom",
-  domain: "infrastructure",
-  server: "infrastructure",
-  hosting: "infrastructure",
-  "domain & server setup": "infrastructure",
-  "complete setup": "complete",
+  get_website: "website", "get website": "website", websites: "website",
+  coaching: "website", gym: "website", portfolio: "website", library: "website",
+  apps: "app", "mobile app": "app", "app development": "app",
+  "whatsapp automation": "automation", whatsapp: "automation",
+  software: "custom", "custom software": "custom",
+  domain: "infrastructure", server: "infrastructure", hosting: "infrastructure",
+  "domain & server setup": "infrastructure", "complete setup": "complete",
+  "website banwayein": "website", "app banwayein": "app",
+  "domain aur server": "infrastructure", "poora project setup": "complete"
 };
 const STEPS = ["name", "business", "requirements", "budget", "timeline"];
-const PROMPTS = {
-  name: "What is your name?",
-  business:
-    "What is your business or project name, and what does it do? If this is a personal project, tell us that.",
-  requirements:
-    "What would you like us to build or set up? Share the main features, the problem to solve, and any domain or hosting you already have.",
-  budget:
-    "Do you have an approximate project budget? You can reply 'skip' if you would like our guidance.",
-  timeline:
-    "When would you like to launch? You can reply 'skip' if you are still deciding.",
-};
-const LIMITS = {
-  name: 120,
-  business: 300,
-  requirements: 3000,
-  budget: 120,
-  timeline: 120,
-};
-const buttons = (body, choices = [QUOTE, TEAM, MENU]) => ({
-  type: "buttons",
-  body,
-  buttons: choices,
-});
-const prompt = (step) => ({
-  type: "text",
-  body: `${PROMPTS[step]}\n\nReply 'menu' to leave this enquiry, or 'human' to request a callback.`,
-});
-const serviceRows = () =>
-  Object.entries(SERVICES).map(([id, { title, description }]) => ({
-    id,
-    title,
-    description,
-  }));
-
-const mainMenu = () => ({
-  type: "list",
-  body: `Welcome to ${BUSINESS_NAME}!\n\nWe turn your ideas into websites, apps and business automations, with complete domain, server and launch setup.\n\nI'm the automated enquiry assistant. Choose a service, request a quote, or talk to our team.`,
-  sections: [
-    { title: "Our services", rows: serviceRows() },
-    {
-      title: "Let's talk",
-      rows: [
-        {
-          ...QUOTE,
-          description: "Share your requirements for a tailored proposal",
-        },
-        {
-          id: "pricing",
-          title: "Pricing & Process",
-          description: "How we scope, build and launch your project",
-        },
-        {
-          id: "company",
-          title: "Website & LinkedIn",
-          description: "Learn about Dhanush Technologies",
-        },
-        { ...TEAM, description: "Request a personal follow-up on WhatsApp" },
-      ],
-    },
-  ],
-});
-
-const companyResponse = (profile) => {
-  const links = [
-    profile.website && `Website: ${profile.website}`,
-    profile.linkedin && `LinkedIn: ${profile.linkedin}`,
-  ].filter(Boolean);
-  return buttons(
-    `${BUSINESS_NAME}\n\nWe build websites, mobile and web apps, WhatsApp automations and custom software. We also handle domains, servers, deployment and project handover.\n\n${links.length ? links.join("\n\n") : "Our team can share our company website, work samples and LinkedIn details when you connect."}`,
-  );
-};
+const LIMITS = { name: 120, business: 300, requirements: 3000, budget: 120, timeline: 120 };
 
 export const detectIntent = (text) => {
-  if (/\b(complete|end.to.end|everything|full setup)\b/i.test(text))
-    return "complete";
-  if (/\b(whatsapp|automation|automate|bot|chatbot)\b/i.test(text))
-    return "automation";
+  if (/\b(complete|end.to.end|everything|full setup|poora|pura|sab kuch)\b/i.test(text)) return "complete";
+  if (/\b(whatsapp|automation|automate|bot|chatbot)\b/i.test(text)) return "automation";
   if (/\b(apps?|android|ios|mobile application)\b/i.test(text)) return "app";
-  if (/\b(websites?|web site|ecommerce|e-commerce|landing page)\b/i.test(text))
-    return "website";
-  if (/\b(domain|server|hosting|deployment|ssl|dns)\b/i.test(text))
-    return "infrastructure";
+  if (/\b(websites?|web site|ecommerce|e-commerce|landing page)\b/i.test(text)) return "website";
+  if (/\b(domain|server|hosting|deployment|ssl|dns)\b/i.test(text)) return "infrastructure";
   if (/\b(software|crm|dashboard|integration)\b/i.test(text)) return "custom";
   return "general";
 };
 
-const freshSession = () => ({
-  step: "browse",
-  enquiryId: randomUUID(),
-  intent: "general",
-  name: "",
-  business: "",
-  requirements: "",
-  budget: "",
-  timeline: "",
-  source: "whatsapp",
-  referralSource: "direct",
+const freshSession = (previous = {}) => ({
+  step: "browse", enquiryId: randomUUID(), intent: "general", name: "", business: "",
+  requirements: "", budget: "", timeline: "", source: "whatsapp",
+  referralSource: previous?.referralSource || "direct",
+  language: isSupportedLanguage(previous?.language) ? previous.language : undefined,
+  choosingLanguage: false, pendingMessage: "", pendingInteractive: false, pendingProfileName: ""
 });
+const normalize = (text) => text.toLowerCase().replace(/\s+/g, " ");
 
-// Dependencies are injectable so complete conversations can be checked without sending messages.
+// Both languages use the same persisted enquiry flow and stable interactive IDs.
 export const createMessageProcessor = (dependencies = {}) => {
-  const deps = {
-    getSession,
-    upsertSession,
-    saveLead,
-    notifyNewLead,
-    getBusinessProfile,
-    ...dependencies,
-  };
+  const deps = { getSession, upsertSession, saveLead, notifyNewLead, getBusinessProfile, ...dependencies };
   const pending = new Map();
-  const process = async ({
-    message = "",
-    from,
-    messageId,
-    name: profileName = "",
-    isInteractive = false,
-  }) => {
-    const original = typeof message === "string" ? message.trim() : "";
-    const text = original.toLowerCase().replace(/\s+/g, " ");
-    if (!from || !text) return mainMenu();
+  const process = async ({ message = "", from, messageId, name: profileName = "", isInteractive = false }) => {
+    let original = typeof message === "string" ? message.trim() : "";
+    let text = normalize(original);
+    if (!from || !text) return languageSelection();
 
     const stored = await deps.getSession(from);
-    if (messageId && stored?.lastMessageId === messageId)
-      return stored.lastResponse;
-    let session =
-      stored?.enquiryId &&
-      (!stored.updatedAt ||
-        Date.now() - new Date(stored.updatedAt).getTime() < 86400000)
-        ? { ...stored }
-        : freshSession();
+    if (messageId && stored?.lastMessageId === messageId) return stored.lastResponse;
+    let session = stored?.enquiryId && (!stored.updatedAt || Date.now() - new Date(stored.updatedAt).getTime() < 86400000)
+      ? { ...stored } : freshSession(stored);
     const finish = async (response) => {
       const { _id, __v, createdAt, updatedAt, ...data } = session;
-      await deps.upsertSession(from, {
-        ...data,
-        lastMessageId: messageId || "",
-        lastResponse: response,
-      });
+      await deps.upsertSession(from, { ...data, lastMessageId: messageId || "", lastResponse: response });
       return response;
     };
+
+    if (CHANGE_LANGUAGE.has(text)) {
+      session.choosingLanguage = true;
+      return finish(languageSelection());
+    }
+    const selectedLanguage = Object.hasOwn(LANGUAGE_CHOICES, text) ? LANGUAGE_CHOICES[text] : null;
+    // Ordinary answers such as "English" remain answers unless selecting a language.
+    if (selectedLanguage && (isInteractive || text.startsWith("language_") || session.choosingLanguage || !isSupportedLanguage(session.language) || !STEPS.includes(session.step))) {
+      session.language = selectedLanguage;
+      session.choosingLanguage = false;
+      if (session.pendingMessage) {
+        original = session.pendingMessage;
+        text = normalize(original);
+        isInteractive = session.pendingInteractive;
+        profileName = session.pendingProfileName || profileName;
+        session.pendingMessage = "";
+        session.pendingInteractive = false;
+        session.pendingProfileName = "";
+      } else {
+        const replies = getConversation(session.language);
+        if (STEPS.includes(session.step)) return finish(replies.prompt(session.step));
+        if (session.step === "browse" && Object.hasOwn(SERVICES, session.intent)) return finish(replies.service(session.intent));
+        return finish(replies.mainMenu());
+      }
+    } else if (!isSupportedLanguage(session.language) || session.choosingLanguage || (isInteractive && text.startsWith("language_"))) {
+      if (!session.choosingLanguage && !text.startsWith("language_")) {
+        // Retain the first request, service selection or referral until language is chosen.
+        session.pendingMessage = original.slice(0, LIMITS.requirements + 1);
+        session.pendingInteractive = isInteractive;
+        session.pendingProfileName = profileName;
+      }
+      session.choosingLanguage = true;
+      return finish(languageSelection());
+    }
+
+    const replies = getConversation(session.language);
     const submit = async (requestType) => {
       const lead = await deps.saveLead({
-        enquiryId: session.enquiryId,
-        phone: from,
-        name: session.name || profileName,
-        business: session.business,
-        message: session.requirements || "Requested a team callback",
-        intent: session.intent,
-        budget: session.budget,
-        timeline: session.timeline,
-        source: "whatsapp",
-        referralSource: session.referralSource,
-        requestType,
+        enquiryId: session.enquiryId, phone: from, name: session.name || profileName,
+        business: session.business, message: session.requirements || "Requested a team callback",
+        intent: session.intent, budget: session.budget, timeline: session.timeline,
+        source: "whatsapp", referralSource: session.referralSource, language: session.language, requestType
       });
       await deps.notifyNewLead(lead);
       session.step = "done";
-      return finish(
-        buttons(
-          requestType === "callback"
-            ? `Your callback request is saved. The ${BUSINESS_NAME} team will follow up here on WhatsApp.`
-            : `Thank you! Your ${SERVICES[session.intent]?.title.toLowerCase() || "project"} enquiry is saved. The ${BUSINESS_NAME} team will review your requirements and follow up here with next steps and a tailored quote.`,
-          [MENU, { id: "company", title: "Website & LinkedIn" }],
-        ),
-      );
+      return finish(replies.confirmation(requestType));
     };
 
-    const referral = text.match(
-      /^hi dhanush technologies[,.!]? i found you on (linkedin|your website)\.?$/,
-    );
+    const referral = text.match(/^hi dhanush technologies[,.!]? i found you on (linkedin|your website)\.?$/);
     if (START.has(text) || ["cancel", "restart"].includes(text) || referral) {
-      session = {
-        ...freshSession(),
-        referralSource: referral
-          ? referral[1] === "linkedin"
-            ? "linkedin"
-            : "website"
-          : session.referralSource,
-      };
-      return finish(mainMenu());
+      session = freshSession(session);
+      if (referral) session.referralSource = referral[1] === "linkedin" ? "linkedin" : "website";
+      return finish(replies.mainMenu());
     }
-    if (COMPANY.has(text))
-      return finish(companyResponse(deps.getBusinessProfile()));
-    if (["pricing", "price", "cost"].includes(text)) {
-      return finish(
-        buttons(
-          `Every project is scoped around your goals.\n\n1. Share your idea and requirements.\n2. We agree on features, timeline and a written quote.\n3. We design, build, test and launch.\n4. We hand over access and agree on any ongoing support.\n\nDevelopment, domain registration, hosting, third-party services and maintenance are itemised in the proposal. Request a quote to get started.`,
-        ),
-      );
-    }
+    if (COMPANY.has(text)) return finish(replies.company(deps.getBusinessProfile()));
+    if (["pricing", "price", "cost", "kharcha", "kharcha aur process"].includes(text)) return finish(replies.pricing());
     if (HANDOFF.has(text)) {
       if (session.step === "done") session.enquiryId = randomUUID();
       return submit("callback");
     }
-
-    if (QUOTES.has(text) && STEPS.includes(session.step))
-      return finish(prompt(session.step));
+    if (QUOTES.has(text) && STEPS.includes(session.step)) return finish(replies.prompt(session.step));
     if (STEPS.includes(session.step) && !isInteractive) {
       const step = session.step;
-      if (text === "skip" && !["budget", "timeline"].includes(step))
-        return finish(prompt(step));
-      if (original.length > LIMITS[step]) {
-        return finish({
-          type: "text",
-          body: `Please keep this answer under ${LIMITS[step]} characters.\n\n${PROMPTS[step]}`,
-        });
-      }
+      if (text === "skip" && !["budget", "timeline"].includes(step)) return finish(replies.prompt(step));
+      if (original.length > LIMITS[step]) return finish(replies.tooLong(step, LIMITS[step]));
       session[step] = text === "skip" ? "Not specified" : original;
-      if (step === "requirements" && session.intent === "general")
-        session.intent = detectIntent(original);
+      if (step === "requirements" && session.intent === "general") session.intent = detectIntent(original);
       if (step === "timeline") return submit("quote");
       session.step = STEPS[STEPS.indexOf(step) + 1];
-      if (session.step === "requirements" && session.requirements)
-        session.step = "budget";
-      return finish(prompt(session.step));
+      if (session.step === "requirements" && session.requirements) session.step = "budget";
+      return finish(replies.prompt(session.step));
     }
-
-    const selectedService = Object.hasOwn(SERVICES, text)
-      ? text
-      : Object.hasOwn(ALIASES, text)
-        ? ALIASES[text]
-        : null;
+    const selectedService = Object.hasOwn(SERVICES, text) ? text : (Object.hasOwn(ALIASES, text) ? ALIASES[text] : null);
     if (selectedService) {
-      session = {
-        ...freshSession(),
-        intent: selectedService,
-        referralSource: session.referralSource,
-      };
-      const service = SERVICES[selectedService];
-      return finish(
-        buttons(
-          `${BUSINESS_NAME} — ${service.title}\n\n${service.details}\n\nWe will confirm the scope, costs and delivery timeline in your proposal.`,
-        ),
-      );
+      session = { ...freshSession(session), intent: selectedService };
+      return finish(replies.service(selectedService));
     }
     if (QUOTES.has(text)) {
-      if (session.step === "done")
-        session = { ...freshSession(), referralSource: session.referralSource };
+      if (session.step === "done") session = freshSession(session);
       session.step = "name";
-      return finish({
-        type: "text",
-        body: `Let's discuss your project with ${BUSINESS_NAME}. We'll collect a few details so our team can prepare a proposal and contact you here.\n\n${prompt("name").body}`,
-      });
+      return finish(replies.quote());
     }
-    if (isInteractive)
-      return finish(
-        STEPS.includes(session.step) ? prompt(session.step) : mainMenu(),
-      );
-    if (THANKS.has(text))
-      return finish(
-        buttons(
-          "You're welcome! You can explore our services or start a new project enquiry whenever you're ready.",
-          [MENU, QUOTE],
-        ),
-      );
-    if (text.length < 3) return finish(mainMenu());
-    if (original.length > LIMITS.requirements)
-      return finish({
-        type: "text",
-        body: "Please summarise your project in under 3000 characters, or reply 'human' to request a callback.",
-      });
+    if (isInteractive) return finish(STEPS.includes(session.step) ? replies.prompt(session.step) : replies.mainMenu());
+    if (THANKS.has(text)) return finish(replies.thanks());
+    if (text.length < 3) return finish(replies.mainMenu());
+    if (original.length > LIMITS.requirements) return finish(replies.longRequest());
 
-    // Keep the initial request while gathering the remaining details.
-    const previousIntent =
-      session.step === "browse" ? session.intent : "general";
-    session = {
-      ...freshSession(),
-      referralSource: session.referralSource,
-      requirements: original,
-      intent:
-        detectIntent(original) === "general"
-          ? previousIntent
-          : detectIntent(original),
-      step: "name",
-    };
-    return finish({
-      type: "text",
-      body: `We can discuss this with you. I've noted your project details for the enquiry.\n\n${prompt("name").body}`,
-    });
+    const previousIntent = session.step === "browse" ? session.intent : "general";
+    const intent = detectIntent(original);
+    session = { ...freshSession(session), requirements: original, intent: intent === "general" ? previousIntent : intent, step: "name" };
+    return finish(replies.noted());
   };
 
-  // Webhooks for the same conversation may arrive while its previous write is pending.
+  // Serialise updates to each conversation while allowing other clients to continue.
   return async (input) => {
     const previous = pending.get(input.from) || Promise.resolve();
     const current = previous.catch(() => {}).then(() => process(input));

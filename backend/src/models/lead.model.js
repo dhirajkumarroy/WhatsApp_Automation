@@ -11,6 +11,7 @@ const leadSchema = new mongoose.Schema({
   budget: String,
   timeline: String,
   referralSource: String,
+  language: { type: String, enum: ["en", "hinglish"] },
   requestType: { type: String, enum: ["quote", "callback"] },
   status: {
     type: String,

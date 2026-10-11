@@ -3,13 +3,21 @@ import assert from "node:assert/strict";
 import { createMessageProcessor, detectIntent } from "../src/services/message.service.js";
 import { getBusinessProfile, SERVICES } from "../src/config/business.js";
 import Lead from "../src/models/lead.model.js";
+import Session from "../src/models/session.model.js";
+import { getConversation, languageSelection } from "../src/config/conversation.js";
 
-const createHarness = (overrides = {}) => {
+const createHarness = (overrides = {}, language = "en") => {
   const sessions = new Map();
+  // Existing scenarios represent a returning client; new-client cases start without a language.
+  if (language) sessions.set("919000000001", {
+    enquiryId: "existing-session", step: "browse", language, intent: "general",
+    name: "", business: "", requirements: "", budget: "", timeline: "",
+    source: "whatsapp", referralSource: "direct", updatedAt: new Date()
+  });
   const leads = [];
   const notifications = [];
   const dependencies = {
-    getSession: async (phone) => structuredClone(sessions.get(phone)),
+    getSession: async (phone) => structuredClone(sessions.get(phone) || null),
     upsertSession: async (phone, data) => sessions.set(phone, structuredClone({ ...data, updatedAt: new Date() })),
     saveLead: async (data) => {
       const existing = leads.find((lead) => lead.enquiryId === data.enquiryId);
@@ -40,6 +48,7 @@ const assertValidResponse = (response) => {
     for (const button of response.buttons) assert.ok(button.title.length <= 20);
   }
   if (response.type === "list") {
+    assert.ok(response.button.length <= 20);
     const rows = response.sections.flatMap((section) => section.rows);
     assert.ok(rows.length <= 10);
     assert.equal(new Set(rows.map((row) => row.id)).size, rows.length);
@@ -74,7 +83,7 @@ for (const service of Object.keys(SERVICES)) {
     assert.deepEqual({ ...bot.leads[0], enquiryId: "id", _id: "lead" }, {
       enquiryId: "id", _id: "lead", phone: "919000000001", name: "Asha Sharma", business: "Sunrise Bookings",
       message: "Bookings and payments, including launch setup", intent: service, budget: "INR 50000",
-      timeline: "Next month", source: "whatsapp", referralSource: "direct", requestType: "quote"
+      timeline: "Next month", source: "whatsapp", referralSource: "direct", language: "en", requestType: "quote"
     });
     assert.equal(bot.notifications.length, 1);
     assert.deepEqual(await bot.send("Next month", { messageId: "final-message" }), reply);
@@ -120,6 +129,7 @@ test("menu cancels draft answers and keeps enquiries from different phones separ
   await bot.send("quote");
   await bot.send("Old Name");
   await bot.send("menu");
+  await bot.send("language_en", { from: "919000000002", isInteractive: true });
   await bot.send("app", { from: "919000000002" });
   await bot.send("automation");
   await bot.send("human");
@@ -246,4 +256,195 @@ test("a new quote after completion starts a separate clean enquiry", async () =>
   assert.equal(bot.leads.length, 2);
   assert.notEqual(bot.leads[0].enquiryId, bot.leads[1].enquiryId);
   assert.equal(bot.leads[1].intent, "website");
+});
+
+test("a new client chooses a language before the service menu", async () => {
+  const bot = createHarness({}, null);
+  const first = await bot.send("hi");
+  assert.deepEqual(first.buttons.map((button) => button.id), ["language_en", "language_hinglish"]);
+  assert.equal(bot.leads.length, 0);
+  const menu = await bot.send("language_hinglish", { isInteractive: true });
+  assert.equal(menu.type, "list");
+  assert.match(menu.body, /aapka swagat hai/);
+  assert.equal(menu.button, "Chunein");
+  assert.equal(bot.sessions.get("919000000001").language, "hinglish");
+  assert.ok(menu.sections.flatMap((section) => section.rows).some((row) => row.id === "change_language"));
+});
+
+for (const service of Object.keys(SERVICES)) {
+  test(`Hinglish ${service} enquiry collects the same fields and preserves client wording`, async () => {
+    const bot = createHarness({}, null);
+    await bot.send("namaste");
+    await bot.send("Hinglish");
+    await bot.send(service, { isInteractive: true });
+    assert.match((await bot.send("get_quote", { isInteractive: true })).body, /Aapka naam kya hai/);
+    assert.match((await bot.send("Asha")).body, /Aapke business/);
+    assert.match((await bot.send("Asha ki dukaan")).body, /Aap kya banwana/);
+    assert.match((await bot.send("Mujhe booking aur payment ke features chahiye")).body, /budget/);
+    assert.match((await bot.send("skip")).body, /kab tak chahiye/);
+    assert.match((await bot.send("agle mahine")).body, /enquiry save ho gayi/);
+    assert.equal(bot.leads.length, 1);
+    assert.equal(bot.leads[0].language, "hinglish");
+    assert.equal(bot.leads[0].intent, service);
+    assert.equal(bot.leads[0].business, "Asha ki dukaan");
+    assert.equal(bot.leads[0].message, "Mujhe booking aur payment ke features chahiye");
+    assert.equal(bot.leads[0].budget, "Not specified");
+    assert.equal(bot.leads[0].timeline, "agle mahine");
+    assert.equal(bot.notifications[0].language, "hinglish");
+    for (const response of bot.responses) assertValidResponse(response);
+  });
+}
+
+test("switching language mid-enquiry keeps answers and resumes the current question", async () => {
+  const bot = createHarness();
+  await bot.send("website");
+  await bot.send("quote");
+  await bot.send("Asha");
+  await bot.send("Asha Studio");
+  const enquiryId = bot.sessions.get("919000000001").enquiryId;
+  await bot.send("language");
+  assert.match((await bot.send("Hinglish")).body, /Aap kya banwana/);
+  assert.equal(bot.sessions.get("919000000001").enquiryId, enquiryId);
+  assert.equal(bot.sessions.get("919000000001").name, "Asha");
+  await bot.send("Mujhe booking website chahiye");
+  await bot.send("bhasha badlein");
+  assert.match((await bot.send("English")).body, /approximate project budget/);
+  await bot.send("skip");
+  await bot.send("skip");
+  assert.equal(bot.leads[0].language, "en");
+  assert.equal(bot.leads[0].message, "Mujhe booking website chahiye");
+  assert.equal(bot.leads[0].intent, "website");
+});
+
+test("language persists across menu, new enquiries, process restarts and draft expiry", async () => {
+  const bot = createHarness({}, null);
+  await bot.send("Hinglish");
+  await bot.send("app");
+  await bot.send("quote");
+  await bot.send("Asha");
+  bot.restart();
+  assert.match((await bot.send("menu")).body, /aapka swagat hai/);
+  await bot.send("human");
+  assert.match((await bot.send("quote")).body, /Aapka naam/);
+  bot.sessions.get("919000000001").updatedAt = new Date(Date.now() - 86400001);
+  assert.match((await bot.send("hi")).body, /aapka swagat hai/);
+  assert.equal(bot.sessions.get("919000000001").language, "hinglish");
+  assert.equal(bot.sessions.get("919000000001").name, "");
+});
+
+test("a first-message project request is kept while language is selected", async () => {
+  const bot = createHarness({}, null);
+  const request = "Mujhe business ke liye app banwana hai";
+  await bot.send(request);
+  bot.restart();
+  assert.match((await bot.send("Hinglish")).body, /Aapka naam/);
+  await bot.send("Ravi");
+  assert.match((await bot.send("Ravi Studio")).body, /approximate budget/);
+  await bot.send("skip");
+  await bot.send("skip");
+  assert.equal(bot.leads[0].message, request);
+  assert.equal(bot.leads[0].intent, "app");
+  assert.equal(bot.leads[0].language, "hinglish");
+});
+
+test("referral attribution and a first service selection survive the language gate", async () => {
+  for (const [entry, source] of [["LinkedIn", "linkedin"], ["your website", "website"]]) {
+    const bot = createHarness({}, null);
+    await bot.send(`Hi Dhanush Technologies, I found you on ${entry}.`);
+    await bot.send("Hinglish");
+    await bot.send("complete");
+    await bot.send("human");
+    assert.equal(bot.leads[0].referralSource, source);
+  }
+  const service = createHarness({}, null);
+  await service.send("infrastructure", { isInteractive: true });
+  assert.match((await service.send("English")).body, /Domain & Server Setup/);
+  assert.equal(service.sessions.get("919000000001").intent, "infrastructure");
+});
+
+test("invalid language replies do not overwrite the pending request or create a lead", async () => {
+  const bot = createHarness({}, null);
+  await bot.send("I need a website");
+  await bot.send("Spanish");
+  await bot.send("language_hindi", { isInteractive: true });
+  assert.equal(bot.leads.length, 0);
+  assert.equal(bot.sessions.get("919000000001").pendingMessage, "I need a website");
+  await bot.send("English");
+  assert.equal(bot.sessions.get("919000000001").requirements, "I need a website");
+});
+
+test("duplicate language callbacks do not consume a draft answer or resubmit a lead", async () => {
+  const bot = createHarness({}, null);
+  await bot.send("human", { name: "WhatsApp profile" });
+  const choice = { messageId: "same-language-choice", isInteractive: true };
+  const confirmation = await bot.send("language_hinglish", choice);
+  assert.equal(bot.leads.length, 1);
+  assert.equal(bot.leads[0].name, "WhatsApp profile");
+  assert.deepEqual(await bot.send("language_hinglish", choice), confirmation);
+  assert.equal(bot.notifications.length, 1);
+});
+
+test("clients' preferences stay isolated", async () => {
+  const bot = createHarness();
+  await bot.send("Hinglish", { from: "919000000002" });
+  assert.equal((await bot.send("hi")).button, "Select");
+  assert.equal((await bot.send("hi", { from: "919000000002" })).button, "Chunein");
+});
+
+test("a legacy draft asks for language once and then processes its pending answer", async () => {
+  const bot = createHarness();
+  await bot.send("quote");
+  const draft = bot.sessions.get("919000000001");
+  delete draft.language;
+  await bot.send("Asha");
+  assert.match((await bot.send("English")).body, /business or project name/);
+  assert.equal(bot.sessions.get("919000000001").name, "Asha");
+});
+
+test("language names remain valid freeform answers outside language selection", async () => {
+  const bot = createHarness();
+  await bot.send("quote");
+  await bot.send("Asha");
+  await bot.send("Language School");
+  await bot.send("English");
+  assert.equal(bot.sessions.get("919000000001").requirements, "English");
+  assert.equal(bot.sessions.get("919000000001").step, "budget");
+});
+
+test("service context survives a language change before requesting a quote", async () => {
+  const bot = createHarness();
+  await bot.send("complete");
+  await bot.send("language");
+  assert.match((await bot.send("Hinglish")).body, /Poora Project Setup/);
+  await bot.send("quote");
+  assert.equal(bot.sessions.get("919000000001").intent, "complete");
+});
+
+test("every translation stays within WhatsApp message limits, including long company links", () => {
+  assertValidResponse(languageSelection());
+  for (const language of ["en", "hinglish"]) {
+    const replies = getConversation(language);
+    const responses = [replies.mainMenu(), replies.pricing(), replies.thanks(), replies.quote(), replies.noted(), replies.longRequest(),
+      replies.company({}), replies.company({ website: `https://example.com/${"w".repeat(230)}`, linkedin: `https://example.com/${"l".repeat(230)}` }),
+      replies.confirmation("quote"), replies.confirmation("callback")];
+    for (const service of Object.keys(SERVICES)) responses.push(replies.service(service));
+    for (const step of ["name", "business", "requirements", "budget", "timeline"]) {
+      responses.push(replies.prompt(step), replies.tooLong(step, 3000));
+    }
+    responses.forEach(assertValidResponse);
+  }
+});
+
+test("language fields validate on both models and legacy documents remain valid", () => {
+  for (const language of ["en", "hinglish"]) {
+    const lead = new Lead({ language });
+    const session = new Session({ language, choosingLanguage: true, pendingMessage: "website" });
+    assert.equal(lead.validateSync(), undefined);
+    assert.equal(session.validateSync(), undefined);
+    assert.equal(lead.toObject().language, language);
+    assert.equal(session.toObject().language, language);
+  }
+  assert.ok(new Lead({ language: "invalid" }).validateSync());
+  assert.ok(new Session({ language: "invalid" }).validateSync());
+  assert.equal(new Session({ phone: "919000000001" }).validateSync(), undefined);
 });

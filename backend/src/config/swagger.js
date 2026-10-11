@@ -52,6 +52,7 @@ const options = {
             timeline: { type: "string" },
             source: { type: "string" },
             referralSource: { type: "string" },
+            language: { type: "string", enum: ["en", "hinglish"], description: "Client's selected conversation language; absent on older leads" },
             requestType: { type: "string", enum: ["quote", "callback"] },
             status: {
               type: "string",

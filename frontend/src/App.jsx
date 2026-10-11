@@ -335,7 +335,7 @@ export default function App() {
         if (!query) return true;
 
         const haystack =
-          `${lead.phone || ""} ${lead.name || ""} ${lead.business || ""} ${lead.message || ""} ${lead.intent || ""} ${SERVICE_LABELS[lead.intent] || ""} ${lead.referralSource || ""} ${lead.status || ""}`
+          `${lead.phone || ""} ${lead.name || ""} ${lead.business || ""} ${lead.message || ""} ${lead.intent || ""} ${SERVICE_LABELS[lead.intent] || ""} ${lead.referralSource || ""} ${lead.language === "en" ? "English" : lead.language || ""} ${lead.status || ""}`
             .toLowerCase();
 
         return haystack.includes(query);
@@ -873,7 +873,8 @@ function LeadDrawer({
             {[
               ["Client", lead.name], ["Business / project", lead.business],
               ["Budget", lead.budget], ["Launch timeline", lead.timeline],
-              ["Request", lead.requestType], ["Found us on", lead.referralSource]
+              ["Request", lead.requestType], ["Found us on", lead.referralSource],
+              ["Preferred language", lead.language === "en" ? "English" : lead.language === "hinglish" ? "Hinglish" : "Not selected"]
             ].map(([label, value]) => (
               <InfoCard key={label} label={label}>
                 <p className="break-words text-sm text-slate-700">{value || "Not provided"}</p>
@@ -1138,4 +1139,3 @@ function AlertIcon({ className }) {
     </svg>
   );
 }
-

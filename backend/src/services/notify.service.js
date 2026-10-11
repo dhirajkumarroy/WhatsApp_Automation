@@ -1,5 +1,6 @@
 import { sendText } from "./whatsapp.service.js";
 import { BUSINESS_NAME, SERVICES } from "../config/business.js";
+import { LANGUAGE_LABELS } from "../config/conversation.js";
 
 const normalizePhoneNumber = (phone = "") => phone.replace(/\D/g, "");
 
@@ -37,6 +38,7 @@ Service: ${SERVICES[lead.intent]?.title || lead.intent || "General enquiry"}
 Budget: ${lead.budget || "Not specified"}
 Timeline: ${lead.timeline || "Not specified"}
 Found us on: ${lead.referralSource || "WhatsApp"}
+Preferred language: ${LANGUAGE_LABELS[lead.language] || "Not specified"}
 
 Requirements: ${lead.message || "Not provided"}
 
